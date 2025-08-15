@@ -8,3 +8,72 @@ pip install ultralytics opencv-python
 
 # to check if installed properly
 python -c "import cv2; import ultralytics; print('OpenCV & YOLO ready')"
+
+# notes:
+
+for every bounding box candidate, YOLO outputs:
+[class probabilities] + [box coordinates]
+
+
+## in detection you balance:
+* precision = how many of the detections were correct
+* recall = of actual objects in the image, how many did you find
+
+trade-off:
+* high conf => fewer false positives
+* low conf => catch more objects but risk chasing ghosts
+
+why it matters:
+* too low conf -> robot reacts to shadows or random textures
+* too high -> robot freezes because it "doesnt see" its target enough
+* middle ground (0.4 - 0.6) often works best in real environments
+
+practical advice:
+* start high (conf=0.7) during development to be sure your detections are correct
+* lower gradually as you want the robot to react to more cases
+* for moving robots: combine conf with temporal smoothing - 
+    e.g. require the target to be seen for N frames before acting
+
+ex output for one box:
+[0.05, 0.12, 0.73, 0.05, 0.05] + [x1, y1, x2, y2]
+* Each number in the first part is probability of a class (e.g., dog, person, car…)
+* The highest probability is 0.73 → meaning YOLO is 73% sure this box is that class.
+
+
+results = model.predict(source=0, imgsz=640, conf=0.5, show=True, save=True, project="week1_tests")
+
+    source=0  => "open webcam at index 0" this is the main camera
+
+    show=True => opens a window to display each frame with YOLO's boxes, labels, and confidence scores
+
+    imgsz=640 => (default 640x640) smaller imgsz for faster, but less accurate detections
+
+    conf=.x => higher to filter out weak detections
+    * ex: conf=.5, filters out anything less than .5 confidence score
+
+    save=True, project="folder name" => saves a mp4 video in a folder you named
+
+## object detection pipeline:
+Webcam → YOLOv8 Model → Detections (boxes, labels, confidence) → Output
+                                                    ↓
+                                Display live window + Save to folder
+
+Inference: Passing your webcam frames through YOLO’s layers to get:
+* Bounding boxes: where objects are
+* Labels: what they are
+* Confidence: how sure the model is
+
+## what's happening:
+YOLOv8n takes each video frame and:
+1. resizes it to the chosen imgsz
+2. normalizes pixel values to between 0-1
+3. runs through convolutional layers => extract patterns (edges, colors, shapes)
+4. applies detection heads => predicts bounding boxes, classes, and confidences
+5. runs non-max suppression (NMS) => removes overlapping duplicate boxes
+6. returns result as a structured python object
+
+## why save results?
+we save results to:
+* replay situations for debugging
+* see false positives/negatives
+* create custom datasets by labeling these frames and retraining YOLO for specific tasks
