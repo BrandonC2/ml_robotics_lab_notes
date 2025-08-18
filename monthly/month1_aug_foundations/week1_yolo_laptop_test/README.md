@@ -39,19 +39,73 @@ ex output for one box:
 * Each number in the first part is probability of a class (e.g., dog, person, car…)
 * The highest probability is 0.73 → meaning YOLO is 73% sure this box is that class.
 
+x1,y1 => top-left corner of the box
+x2,y2 => bottom-right corner of the box
 
-results = model.predict(source=0, imgsz=640, conf=0.5, show=True, save=True, project="week1_tests")
+for example: 
+if a YOLO detects a cup and gives:
+[100, 50, 180, 130]
 
-    source=0  => "open webcam at index 0" this is the main camera
+left edge = 100 pixels
+top edge = 50 pixels
+right edge = 180 pixels
+bottom edge = 130 pixels
 
-    show=True => opens a window to display each frame with YOLO's boxes, labels, and confidence scores
+width = x2 - x1 = 180 - 100 = 80 pixels
+height =  y2 - y1 = 130 - 50 = 80 pixels
 
-    imgsz=640 => (default 640x640) smaller imgsz for faster, but less accurate detections
+area = width * height
+=> area = (box[2] - box[0]) * (box[3] - box[1])
 
-    conf=.x => higher to filter out weak detections
-    * ex: conf=.5, filters out anything less than .5 confidence score
+example #2
+If YOLO detects a bottle:
+[100, 50, 180, 200]
 
-    save=True, project="folder name" => saves a mp4 video in a folder you named
+left edge is at 100px from the left of the frame
+right edge is at 180 px from the left of the frame
+
+## what is center_x
+center_x is the horizontal middle of the object in the frame
+
+formula:
+center_x = (x1 + x2) / 2
+
+for example (from prev example):
+center_x = (100 + 180) / 2
+=> 140 pixels
+
+the center of the bottle is at 140 px from the left edge of the frame 
+
+center_x < frame_center → Object is to the left → turn left
+center_x > frame_center → Object is to the right → turn right
+center_x ≈ frame_center → Object is in front → go forward
+
+if your frame is 640 px wide,
+frame_center = 640 / 2 = 320 px
+
+then, 
+center_x = 140 → turn left
+center_x = 500 → turn right
+center_x = 320 → go forward
+
+## results = model.predict(source=0, imgsz=640, conf=0.5, show=True, save=True, project="week1_tests")
+
+source=0  => "open webcam at index 0" this is the main camera
+
+show=True => opens a window to display each frame with YOLO's boxes, labels, and confidence scores
+
+imgsz=640 => (default 640x640) smaller imgsz for faster, but less accurate detections
+* imgsz resizes + pad (if not perfect square) to feed the neural net
+* the network predicts bounding boxes in this resized space
+* then YOLO maps the boxes back to your original frame size before returning them
+* results[0].boxes.xyxy are in the original frame coordinates
+* after prediction, YOLO rescales everything to match camera's original resolution
+
+
+conf=.x => higher to filter out weak detections
+* ex: conf=.5, filters out anything less than .5 confidence score
+
+save=True, project="folder name" => saves a mp4 video in a folder you named
 
 ## object detection pipeline:
 Webcam → YOLOv8 Model → Detections (boxes, labels, confidence) → Output
@@ -77,3 +131,22 @@ we save results to:
 * replay situations for debugging
 * see false positives/negatives
 * create custom datasets by labeling these frames and retraining YOLO for specific tasks
+
+## tolerance band
+tolerance band is a margin that stops the robot from overreacting.
+
+for example, if object's center_x is:
+321 -> TURN RIGHT
+319 -> TURN LEFT
+
+it would make the robot jittery
+
+## how big should margin be?
+depends on your frame width (resolution):
+
+for 640 px wide frame: margin ≈ 40–60 px
+
+for 1280 px wide frame: margin ≈ 80–120 px
+
+rule of thumb:
+* Margin ≈ 10% of frame width
